@@ -6,13 +6,13 @@
 #Calculate the majority NLCD code for each polygon then add the information to the NLCD data cells that are currently empty.
 DMA_v1 <- nlcd_majority(nlcd="path/NLCD_2016_Land_Cover_L48_20190424.img",
                         DMA_dir = "path/GIS/",
-                        DMA_file = "Umatilla_DMAs_2019-2",
+                        DMA_file = "Jefferson_DMAs_2019-2",
                         region = "eastern")
 
 #Reassign DMAs for all polygons based on updated nlcd data, except for those that have been flagged as edited manually.
 DMA_v2 <- assign_dma(DMA= DMA_v1,
-                     countyname = "Jefferson County",
-                     gaps= TRUE,
+                     countyname = "Umatilla County",
+                     gaps= FALSE,
                      tribal = TRUE,
                      zcodes = TRUE,
                      pubyear= 2019,
