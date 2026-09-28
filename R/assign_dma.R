@@ -5,7 +5,7 @@
 #' @param countyname name of county with DMAs being updated by this function
 #' @param gaps TRUE/FAlSE indicating whether there are gaps in the county tax lot GIS file
 #' @param tribal TRUE/FALSe indicating whether there are tribal areas within the county
-#' @param zcode TRUE/FALSE indicating whether zoning data is included for this county in the statwide basedata layer
+#' @param zcodes TRUE/FALSE indicating whether zoning data is included for this county in the statwide basedata layer
 #' @param pubyear 2016 or 2019 indicating the year of the public land management GIS base data layer
 #' @param region "eastern" or "western" indicating which NLCD Lookup table to load. This determines how nlcd land cover type shrub/scrub will be classifiied; as "Agriculture" in the eastern region and as "Forest" in the western region.
 #'
@@ -13,14 +13,14 @@
 #' @export
 #'
 #' @examples
-#' DMA_v2 <- assign_dma(DMA= DMA, DMA_dir, countyname = "Jefferson County", gaps= FALSE, tribal = TRUE, zcode = TRUE, pubyear= 2019, region = "eastern")
+#' DMA_v2 <- assign_dma(DMA= DMA, DMA_dir, countyname = "Jefferson County", gaps= FALSE, tribal = TRUE, zcodes = TRUE, pubyear= 2019, region = "eastern")
 
 assign_dma <- function(DMA,
                        DMA_dir,
                        countyname,
                        gaps,
                        tribal,
-                       zcode,
+                       zcodes,
                        pubyear,
                        region)
   {
@@ -30,7 +30,7 @@ assign_dma <- function(DMA,
   # countyname <- "Jefferson County"
   # gaps <- FALSE
   # tribal <- TRUE
-  # zcode <- TRUE
+  # zcodes <- TRUE
   # pubyear <- 2019
   # region <- "eastern"
   # # --
@@ -131,7 +131,9 @@ assign_dma <- function(DMA,
     DMA$DMA_RP_Ab <- ifelse((grepl("RAIL", DMA$Taxlot, ignore.case = TRUE, fixed = FALSE) &
                                 DMA$RailOwner %in% LU_rail$RR_NAME) |
                                (grepl("NON", DMA$Taxlot, ignore.case = TRUE, fixed = FALSE) &
-                                  DMA$RailOwner %in% LU_rail$RR_NAME),
+                                  DMA$RailOwner %in% LU_rail$RR_NAME)|
+                              (grepl("RR", DMA$Taxlot, ignore.case = TRUE, fixed = FALSE) &
+                                 DMA$RailOwner %in% LU_rail$RR_NAME),
                              LU_rail$DMA[match(DMA$RailOwner, LU_rail$RR_NAME)],
                              DMA$DMA_RP_Ab)
 
@@ -160,18 +162,29 @@ assign_dma <- function(DMA,
                              LU_rail$DMA[match(DMA$RailOwner, LU_rail$RR_NAME)],
                              DMA$DMA_RP_Ab)
 
-    DMA$DMA_RP_Ab2 <- ifelse(is.na(DMA$DMA_RP_Ab2) &
+    DMA$DMA_RP2_Ab <- ifelse(is.na(DMA$DMA_RP2_Ab) &
                                 is.na(DMA$Tribe) &
                                 DMA$RailInt %in% LU_rail$RR_NAME,
                               LU_rail$DMA[match(DMA$RailInt, LU_rail$RR_NAME)],
-                              DMA$DMA_RP_Ab2)
+                              DMA$DMA_RP2_Ab)
 
-    Rails <- DMA %>% dplyr::filter(!is.na(DDMA_RP_Ab))
+    Rails <- DMA %>% dplyr::filter(!is.na(DMA_RP_Ab))
     DMA <- DMA %>% dplyr::filter(is.na(DMA_RP_Ab))
 
   }
 
-  ##C: Tribal Areas##
+  ##C: Ports ##
+  if(nrow(DMA) > 0){
+    DMA$DMA_RP_Ab <- ifelse((grepl("PORT OF", DMA$OwnerName, ignore.case = TRUE, fixed = FALSE) &
+                          DMA$OwnerName %in% LU_owner$Owner_Name),
+                       LU_owner$DMA[match(DMA$OwnerName, LU_owner$Owner_Name)],
+                       DMA$DMA_RP_Ab)
+
+    Ports <- DMA %>% dplyr::filter(!is.na(DMA_RP_Ab))
+    DMA <- DMA %>% dplyr::filter(is.na(DMA_RP_Ab))
+  }
+
+  ##D: Tribal Areas##
   if(nrow(DMA) > 0 & tribal == TRUE){
     DMA$DMA_RP_Ab <- ifelse(!is.na(DMA$Tribe), DMA$Tribe, DMA$DMA_RP_Ab)
     Tribal <- DMA %>% dplyr::filter(!is.na(DMA_RP_Ab))
@@ -181,7 +194,7 @@ assign_dma <- function(DMA,
     DMA <- DMA %>% dplyr::filter(is.na(DMA_RP_Ab))
   }
 
-  ##D: City Limits##
+  ##E: City Limits##
   if(nrow(DMA) > 0){
     DMA$DMA_RP_Ab <- ifelse(!is.na(DMA$CityName),
                              DMA$CityName,
@@ -192,7 +205,7 @@ assign_dma <- function(DMA,
 
   }
 
-  ##E: Public Land Management##
+  ##F: Public Land Management##
 
   if(nrow(DMA) > 0){
     if (pubyear==2015){
@@ -273,10 +286,10 @@ assign_dma <- function(DMA,
     DMA <- DMA %>% dplyr::filter(is.na(DMA_RP_Ab))
   }
 
-  ##F: Tax Lot Ownership##
+  ##G: Tax Lot Ownership##
   if(nrow(DMA) > 0){
-    DMA$DMA_RP_Ab <- ifelse(DMA$OwnerName %in% LU_owner$Owner_Name,
-                             LU_owner$DMA[match(DMA$OwnerName, stringr::regex(LU_owner$Owner_Name, ignore_case=TRUE))],
+    DMA$DMA_RP_Ab <- ifelse(tolower(DMA$OwnerName) %in% tolower(LU_owner$Owner_Name),
+                             LU_owner$DMA[match(tolower(DMA$OwnerName), stringr::regex(LU_owner$Owner_Name, ignore_case=TRUE))],
                              DMA$DMA_RP_Ab)
     TaxlotOwners <- DMA %>% dplyr::filter(!is.na(DMA_RP_Ab))
     DMA <- DMA %>% dplyr::filter(is.na(DMA_RP_Ab))
@@ -284,7 +297,8 @@ assign_dma <- function(DMA,
 
 
 
-  ##G: Zoning
+  ##H: Zoning
+  if(zcodes==TRUE){
   if(nrow(DMA) > 0){
     DMA$DMA_RP_Ab <- ifelse(DMA$orZClass == "Mining" &
                                !is.na(DMA$OwnerName),
@@ -304,9 +318,31 @@ assign_dma <- function(DMA,
     Zoning <- DMA %>% dplyr::filter(!is.na(DMA_RP_Ab ))
     DMA <- DMA %>% dplyr::filter(is.na(DMA_RP_Ab ))
   }
+  }
 
+  if(zcodes==FALSE){
+    if(nrow(DMA) > 0){
+      DMA$DMA_RP_Ab <- ifelse(DMA$PrpClass == "Mining" &
+                                !is.na(DMA$OwnerName),
+                              "DOGAMI",
+                              DMA$DMA_RP_Ab)
 
-  ##H: NLCD
+      DMA$DMA_RP_Ab <- ifelse(DMA$PrpClass == "Forestry" &
+                                !is.na(DMA$OwnerName),
+                              "ODF-Private",
+                              DMA$DMA_RP_Ab)
+
+      DMA$DMA_RP_Ab <- ifelse(DMA$PrpClass == "Agriculture" &
+                                !is.na(DMA$OwnerName),
+                              "ODA",
+                              DMA$DMA_RP_Ab)
+
+      Zoning <- DMA %>% dplyr::filter(!is.na(DMA_RP_Ab ))
+      DMA <- DMA %>% dplyr::filter(is.na(DMA_RP_Ab ))
+    }
+  }
+
+  ##I: NLCD
   if(nrow(DMA) > 0){
     DMA$DMA_RP_Ab <- ifelse(DMA$orZClass == "Agriculture & Forestry" &
                                DMA$NLCD_Class == "Forest" &
@@ -334,7 +370,7 @@ assign_dma <- function(DMA,
     DMA <- DMA %>% dplyr::filter(is.na(DMA_RP_Ab ))
   }
 
-  ##I: Water##
+  ##J: Water##
   if(nrow(DMA) > 0){
     if (pubyear==2015){
       DMA$DMA_RP_Ab <- ifelse((grepl("WATER", DMA$Taxlot, ignore.case = TRUE, fixed = FALSE) &
@@ -420,7 +456,7 @@ assign_dma <- function(DMA,
     DMA <- DMA %>% dplyr::filter(is.na(DMA_RP_Ab ))
   }
 
-  ##J: County##
+  ##K: County##
   #If a DMA has not yet been assigned, the county is the DMA
   if(nrow(DMA) > 0){
     DMA$DMA_RP_Ab <- countyname
@@ -430,11 +466,11 @@ assign_dma <- function(DMA,
 
   #recombine all subsets of the original tax lot data
   if(nrow(DMA) == 0 & tribal== TRUE){
-    DMA <- rbind(Cities, County, Edit, NLCD, Public, Rails, Roads, TaxlotOwners, Tribal, Water, Zoning)
+    DMA <- rbind(Cities, County, Edit, NLCD, Ports, Public, Rails, Roads, TaxlotOwners, Tribal, Water, Zoning)
   }
 
   if(nrow(DMA) == 0 & tribal== FALSE){
-    DMA <- rbind(Cities, County, Edit, NLCD, Public, Rails, Roads, TaxlotOwners, Water, Zoning)
+    DMA <- rbind(Cities, County, Edit, NLCD, Ports, Public, Rails, Roads, TaxlotOwners, Water, Zoning)
   }
 
   #add official DMA name
@@ -461,8 +497,7 @@ assign_dma <- function(DMA,
   DMA$Symbol <-ifelse(DMA$DMA_RP_Ab %in% LU_DMAs$DMA,
                       LU_DMAs$Symbol[match(DMA$DMA_RP_Ab, LU_DMAs$DMA)],
                       DMA$Symbol)
-  #Add Version
-  DMA$Version <- "Jefferson_2019-2"
+
 
   return(DMA)
 }
