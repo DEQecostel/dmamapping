@@ -77,6 +77,5 @@ if (region == "eastern") {
       dplyr::mutate(NLCD_Class = if_else(NLCD ==52, "Agriculture", NLCD_Class))
   }
 
-
  return(DMA_1)
 }
