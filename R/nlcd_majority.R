@@ -30,10 +30,12 @@ if (region == "western") {
   data(LU_nlcd_wr)
   LU_nlcd <- LU_nlcd_wr
       }
-if (region == "eastern") {
+
+  if (region == "eastern") {
   data(LU_nlcd_er)
   LU_nlcd <- LU_nlcd_er
-}
+  }
+
   #in nlcd look up table rename column NLCD.Code to NLCD
   LU_nlcd <- LU_nlcd |>
     rename(NLCD = NLCD.Code)
